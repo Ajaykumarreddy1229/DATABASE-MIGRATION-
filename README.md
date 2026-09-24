@@ -1,323 +1,669 @@
-# DATABASE-MIGRATION-
-This project migrates a PostgreSQL database to MySQL using AWS RDS, AWS Schema Conversion Tool (SCT), and AWS Database Migration Service (DMS). SCT converts the database schema, while DMS transfers the data. Security Groups provide secure connectivity, and the migrated tables and records are verified to ensure successful and accurate migration.
+# AWS DATABASE MIGRATION – PostgreSQL to MySQL
 
-================================================================================
-AWS DATABASE MIGRATION GUIDE: POSTGRESQL TO MYSQL USING AWS SCT + AWS DMS
-================================================================================
+## 📌 Overview
 
---------------------------------------------------------------------------------
-1. CREATE POSTGRESQL RDS
---------------------------------------------------------------------------------
-• Creation method: Standard create
-• Engine: PostgreSQL
-• Template: Free tier
-• DB identifier: postgres-source
-• Username: postgres
-• Password: <your password>
-• VPC: Same VPC you will use for migration
-• Public access: Yes
-• Port: 5432
-• Initial database: testdb
-• Security Group: enable postgres-sg
+This project demonstrates how to migrate a PostgreSQL database to MySQL using AWS services and migration tools.
 
-Wait until Status: Available
+### Tools Used
 
+* Amazon RDS PostgreSQL
+* Amazon RDS MySQL
+* AWS Schema Conversion Tool (SCT)
+* AWS Database Migration Service (DMS)
+* AWS Security Groups
+* pgAdmin
+* PostgreSQL
+* MySQL
 
---------------------------------------------------------------------------------
-2. CONNECT POSTGRESQL USING PGADMIN
---------------------------------------------------------------------------------
-• Host: <PostgreSQL RDS endpoint>
-• Port: 5432
-• Username: postgres
-• Password: <your password>
+---
 
-Click Save.
+# 🔄 Migration Flow
 
+```text
+PostgreSQL RDS
+      |
+      +------------------+
+      |                  |
+      v                  v
+   AWS SCT             AWS DMS
+      |                  |
+      |                  |
+      v                  v
+MySQL Schema       MySQL Data
+      |                  |
+      +--------+---------+
+               |
+               v
+          MySQL RDS
+```
 
---------------------------------------------------------------------------------
-3. CREATE TEST TABLE
---------------------------------------------------------------------------------
-Open:
-  testdb -> Schemas -> public -> Query Tool
+### Simple Flow
 
-Create table:
-  CREATE TABLE public.employees (
-      name VARCHAR(100)
-  );
+```text
+PostgreSQL
+     ↓
+AWS SCT
+     ↓
+Schema Conversion
+     ↓
+MySQL
+     ↓
+AWS DMS
+     ↓
+Data Migration
+     ↓
+Data Verification
+```
 
-Insert sample data:
-  INSERT INTO public.employees (name)
-  VALUES
-  ('Mukul'),
-  ('Rahul'),
-  ('Tejas'),
-  ('Priya'),
-  ('Ajay');
+---
 
-Check data:
-  SELECT * FROM public.employees;
+# 1. PostgreSQL RDS
 
-Check count:
-  SELECT COUNT(*) FROM public.employees;
-  Expected Output: 5
+First, I created an Amazon RDS PostgreSQL database.
 
+### Configuration
 
---------------------------------------------------------------------------------
-4. CREATE MYSQL RDS
---------------------------------------------------------------------------------
-• Creation method: Standard create
-• Engine: MySQL
-• Template: Free tier
-• DB identifier: mysql-target
-• Username: mysqladmin
-• Password: <your password>
+```text
+Engine          : PostgreSQL
+DB Identifier   : postgres-source
+Username        : postgres
+Port            : 5432
+Database        : testdb
+```
 
-Connectivity:
-• Same VPC
-• Public access: Yes (for beginner lab)
-• Port: 3306
-• Security Group: mysql-sg
+A Security Group was configured for PostgreSQL access.
 
-Wait until Status: Available
+```text
+postgres-sg
+     |
+     +---- TCP 5432
+```
 
+The RDS instance was created in the VPC used for the migration lab.
 
---------------------------------------------------------------------------------
-5. SECURITY GROUPS CONFIGURATION
---------------------------------------------------------------------------------
-PostgreSQL Security Group (postgres-sg):
-  Inbound rule:
-    - Type: PostgreSQL
-    - Port: 5432
-    - Source: My IP
+---
 
-MySQL Security Group (mysql-sg):
-  Inbound rule:
-    - Type: MySQL/Aurora
-    - Port: 3306
-    - Source: My IP
+# 2. Connect PostgreSQL Using pgAdmin
 
+I connected to the PostgreSQL RDS database using pgAdmin.
 
---------------------------------------------------------------------------------
-6. INSTALL AWS SCHEMA CONVERSION TOOL (SCT)
---------------------------------------------------------------------------------
-Download and install AWS Schema Conversion Tool.
+```text
+Host     : PostgreSQL RDS Endpoint
+Port     : 5432
+Database : testdb
+Username : postgres
+Password : <password>
+```
 
-Drivers required for PostgreSQL -> MySQL migration:
-1. PostgreSQL JDBC driver:
-   - Download PostgreSQL JDBC .jar file.
+---
 
-2. MySQL JDBC driver:
-   - Download MySQL Connector/J .jar file.
-   - Example: mysql-connector-j-9.x.x.jar
+# 3. Create Employee Table
 
-NOTE: SCT requires the actual extracted .jar file, NOT the .zip file.
+I created a sample `employees` table in PostgreSQL.
 
+```sql
+CREATE TABLE public.employees (
+    name VARCHAR(100)
+);
+```
 
---------------------------------------------------------------------------------
-7. CREATE SCT PROJECT
---------------------------------------------------------------------------------
+Inserted sample records:
+
+```sql
+INSERT INTO public.employees (name)
+VALUES
+('Mukul'),
+('Rahul'),
+('Tejas'),
+('Priya'),
+('Ajay');
+```
+
+Check the records:
+
+```sql
+SELECT * FROM public.employees;
+```
+
+Check the number of records:
+
+```sql
+SELECT COUNT(*) FROM public.employees;
+```
+
+Expected:
+
+```text
+5
+```
+
+---
+
+# 4. Create MySQL RDS
+
+Next, I created an Amazon RDS MySQL database.
+
+### Configuration
+
+```text
+Engine        : MySQL
+DB Identifier : mysql-target
+Username      : mysqladmin
+Port          : 3306
+```
+
+Security Group:
+
+```text
+mysql-sg
+     |
+     +---- TCP 3306
+```
+
+The MySQL RDS instance was used as the target database.
+
+---
+
+# 5. Security Groups
+
+Security Groups control access to the source and target databases.
+
+### PostgreSQL
+
+```text
+PostgreSQL RDS
+      |
+      ↓
+postgres-sg
+      |
+      ↓
+TCP 5432
+```
+
+### MySQL
+
+```text
+MySQL RDS
+    |
+    ↓
+mysql-sg
+    |
+    ↓
+TCP 3306
+```
+
+Only the required sources should be allowed to access database ports.
+
+---
+
+# 6. AWS Schema Conversion Tool
+
+AWS Schema Conversion Tool (SCT) is used to convert database schemas from one database engine to another.
+
+In this project:
+
+```text
+PostgreSQL Schema
+       ↓
+     AWS SCT
+       ↓
+MySQL-Compatible Schema
+```
+
+### JDBC Drivers
+
+SCT requires database JDBC drivers.
+
+For PostgreSQL:
+
+```text
+PostgreSQL JDBC Driver
+```
+
+For MySQL:
+
+```text
+MySQL Connector/J
+```
+
+The actual `.jar` files are required by SCT.
+
+---
+
+# 7. Create SCT Project
+
 Open AWS Schema Conversion Tool.
-Go to: File -> New Project
 
-Project Settings:
-• Project name: postgres-to-mysql
-• Database type: SQL database
-• Source: PostgreSQL
+```text
+File
+ ↓
+New Project
+```
 
+Example:
 
---------------------------------------------------------------------------------
-8. CONNECT POSTGRESQL TO SCT
---------------------------------------------------------------------------------
-Click: Add source -> PostgreSQL
+```text
+Project Name : postgres-to-mysql
+Database Type: SQL Database
+Source       : PostgreSQL
+```
 
-Enter details:
-• Server: <PostgreSQL RDS endpoint>
-• Port: 5432
-• Database: testdb
-• Username: postgres
-• Password: <password>
-• PostgreSQL driver path: <path to postgresql JDBC .jar>
+---
 
-Click: Test Connection
-Expected Result: Connection successful
+# 8. Add PostgreSQL Source
 
+Add PostgreSQL as the source database.
 
---------------------------------------------------------------------------------
-9. CONNECT MYSQL TO SCT
---------------------------------------------------------------------------------
-Click: Add target -> MySQL
+```text
+Server   : PostgreSQL RDS Endpoint
+Port     : 5432
+Database : testdb
+Username : postgres
+Password : <password>
+```
 
-Enter details:
-• Server: <MySQL RDS endpoint>
-• Port: 3306
-• Database: <target database>
-• Username: mysqladmin
-• Password: <password>
-• MySQL driver path: <path to mysql-connector-j .jar>
+Select the PostgreSQL JDBC driver.
 
-Click: Test Connection
-Expected Result: Connection successful
+Then test the connection.
 
+```text
+Test Connection
+       ↓
+Connection Successful
+```
 
---------------------------------------------------------------------------------
-10. CREATE SCT MAPPING
---------------------------------------------------------------------------------
-Go to Mapping View.
+---
 
-Left side (Source):
-  PostgreSQL -> Schemas -> public (Select 'public')
+# 9. Add MySQL Target
 
-Right side (Target):
-  MySQL -> mysql-target (Select the MySQL target)
+Add MySQL as the target database.
 
-Click: Create mapping
+```text
+Server   : MySQL RDS Endpoint
+Port     : 3306
+Database : <target database>
+Username : mysqladmin
+Password : <password>
+```
 
-Expected Mapping View:
-  PostgreSQL public  -->  MySQL target
+Select the MySQL JDBC driver.
 
+Test the connection.
 
---------------------------------------------------------------------------------
-11. CONVERT SCHEMA
---------------------------------------------------------------------------------
-Go to Main View.
-Select: PostgreSQL -> public
-Right-click: Convert schema
+---
 
-SCT will convert PostgreSQL objects into MySQL-compatible SQL definitions.
+# 10. Create Schema Mapping
 
+Create a mapping between PostgreSQL and MySQL.
 
---------------------------------------------------------------------------------
-12. APPLY SCHEMA TO MYSQL
---------------------------------------------------------------------------------
-After conversion:
-Right-click the converted MySQL schema/object.
-Choose: Apply to database
-Review SQL script and click: Apply / Yes
+```text
+PostgreSQL
+    |
+    | public schema
+    ↓
+MySQL
+```
 
-The target MySQL database now contains the converted table structure.
+Example:
 
+```text
+PostgreSQL public
+       ↓
+MySQL target
+```
 
---------------------------------------------------------------------------------
-13. CREATE DMS REPLICATION INSTANCE
---------------------------------------------------------------------------------
-Open AWS Console -> AWS DMS
-Go to: Replication instances -> Create replication instance
+---
 
-Wait until Status: Available
+# 11. Convert Schema
 
+In AWS SCT:
 
---------------------------------------------------------------------------------
-14. CREATE POSTGRESQL SOURCE ENDPOINT
---------------------------------------------------------------------------------
-Endpoint type: Source endpoint
-Engine: PostgreSQL
+```text
+PostgreSQL
+    ↓
+public
+    ↓
+Right Click
+    ↓
+Convert Schema
+```
 
-Enter details:
-• Server: <PostgreSQL RDS endpoint>
-• Port: 5432
-• Database: testdb
-• Username: postgres
-• Password: <password>
+SCT converts the PostgreSQL schema into a MySQL-compatible schema.
 
+---
 
---------------------------------------------------------------------------------
-15. CREATE MYSQL TARGET ENDPOINT
---------------------------------------------------------------------------------
-Endpoint type: Target endpoint
-Engine: MySQL
+# 12. Apply Schema to MySQL
 
-Enter details:
-• Server: <MySQL RDS endpoint>
-• Port: 3306
-• Database: <target database>
-• Username: mysqladmin
-• Password: <password>
+After converting the schema:
 
+```text
+Converted Schema
+       ↓
+Apply to Database
+       ↓
+MySQL RDS
+```
 
---------------------------------------------------------------------------------
-16. CREATE DMS MIGRATION TASK
---------------------------------------------------------------------------------
-DMS -> Database migration tasks -> Create task
+The table structure is created in the MySQL target database.
+
+---
+
+# 13. AWS Database Migration Service
+
+AWS DMS is used to migrate the actual data from the source database to the target database.
+
+### Purpose
+
+```text
+AWS SCT → Schema Conversion
+
+AWS DMS → Data Migration
+```
+
+This is an important difference between SCT and DMS.
+
+---
+
+# 14. Create DMS Replication Instance
+
+Go to:
+
+```text
+AWS Console
+     ↓
+AWS DMS
+     ↓
+Replication Instances
+     ↓
+Create Replication Instance
+```
+
+Example:
+
+```text
+Replication Instance:
+postgres-to-mysql-dms
+```
+
+Wait until the status becomes:
+
+```text
+Available
+```
+
+---
+
+# 15. Create PostgreSQL Source Endpoint
+
+Create a source endpoint.
+
+```text
+Endpoint Type : Source
+Engine        : PostgreSQL
+```
 
 Configuration:
-• Task identifier: postgres-mysql
-• Replication instance: postgres-to-mysql-dms
-• Source endpoint: postgres-source-dms
-• Target endpoint: mysql-target-dms
-• Migration type: Migrate existing data
 
+```text
+Server   : PostgreSQL RDS Endpoint
+Port     : 5432
+Database : testdb
+Username : postgres
+Password : <password>
+```
 
---------------------------------------------------------------------------------
-17. TABLE MAPPINGS
---------------------------------------------------------------------------------
-Inside the DMS task configuration:
-Go to: Table mappings -> Guided UI
+Test the connection.
 
-Choose: Add new selection rule
+---
 
-Option A (All tables in public):
-  Schema: public
-  Table: %
-  Action: Include
+# 16. Create MySQL Target Endpoint
 
-Option B (Only employees table):
-  Schema: public
-  Table: employees
-  Action: Include
+Create a target endpoint.
 
+```text
+Endpoint Type : Target
+Engine        : MySQL
+```
 
---------------------------------------------------------------------------------
-18. START DMS TASK
---------------------------------------------------------------------------------
-Create and save the task.
-Click: Start
+Configuration:
 
-Status progression:
-  Starting -> Running -> Load complete
+```text
+Server   : MySQL RDS Endpoint
+Port     : 3306
+Database : <target database>
+Username : mysqladmin
+Password : <password>
+```
 
-Monitor: Full load progress
+Test the connection.
 
+---
 
---------------------------------------------------------------------------------
-19. VERIFY MYSQL TABLES
---------------------------------------------------------------------------------
-Connect to MySQL using client/CLI.
+# 17. Create DMS Migration Task
+
+Go to:
+
+```text
+AWS DMS
+   ↓
+Database Migration Tasks
+   ↓
+Create Task
+```
+
+Example:
+
+```text
+Task Identifier:
+postgres-mysql
+```
+
+Select:
+
+```text
+Replication Instance:
+postgres-to-mysql-dms
+
+Source:
+postgres-source-dms
+
+Target:
+mysql-target-dms
+```
+
+Migration type:
+
+```text
+Migrate existing data
+```
+
+---
+
+# 18. Configure Table Mappings
+
+DMS allows specific tables to be selected for migration.
+
+### All Tables
+
+```text
+Schema : public
+Table  : %
+Action : Include
+```
+
+### Specific Table
+
+```text
+Schema : public
+Table  : employees
+Action : Include
+```
+
+For this project, the `employees` table can be selected.
+
+---
+
+# 19. Start DMS Task
+
+Start the migration task.
+
+Typical status:
+
+```text
+Starting
+    ↓
+Running
+    ↓
+Load Complete
+```
+
+Monitor the migration task for:
+
+* Table status
+* Rows loaded
+* Migration errors
+* Full load progress
+* Validation results
+
+---
+
+# 20. Verify MySQL Tables
+
+Connect to the MySQL database.
+
 Run:
-  SHOW TABLES;
 
-Expected Output:
-  employees
+```sql
+SHOW TABLES;
+```
 
+Expected:
 
---------------------------------------------------------------------------------
-20. VERIFY MYSQL DATA
---------------------------------------------------------------------------------
+```text
+employees
+```
+
+---
+
+# 21. Verify Migrated Data
+
 Run:
-  SELECT * FROM employees;
 
-Expected Output:
-  Mukul
-  Rahul
-  Tejas
-  Priya
-  Ajay
+```sql
+SELECT * FROM employees;
+```
 
+Expected records:
 
---------------------------------------------------------------------------------
-21. COMPARE ROW COUNTS
---------------------------------------------------------------------------------
-PostgreSQL:
-  SELECT COUNT(*) FROM employees;
-  Expected Output: 5
+```text
+Mukul
+Rahul
+Tejas
+Priya
+Ajay
+```
 
-MySQL:
-  SELECT COUNT(*) FROM employees;
-  Expected Output: 5
+---
 
-If both counts are 5 and records match:
-  [OK] 
+# 22. Compare Row Counts
 
+### PostgreSQL
 
-================================================================================
-Migration Successful 
-================================================================================
+```sql
+SELECT COUNT(*) FROM employees;
+```
+
+Expected:
+
+```text
+5
+```
+
+### MySQL
+
+```sql
+SELECT COUNT(*) FROM employees;
+```
+
+Expected:
+
+```text
+5
+```
+
+If the source and target records match, the migration can be considered successfully verified for this lab.
+
+---
+
+# 🧠 SCT vs DMS
+
+| Tool           | Purpose                        |
+| -------------- | ------------------------------ |
+| AWS SCT        | Converts database schema       |
+| AWS DMS        | Migrates database data         |
+| RDS PostgreSQL | Source database                |
+| RDS MySQL      | Target database                |
+| Security Group | Controls network access        |
+| pgAdmin        | PostgreSQL database management |
+
+### Easy way to remember
+
+```text
+SCT = Schema Conversion
+
+DMS = Data Migration
+```
+
+---
+
+# 📚 Key Concepts Learned
+
+Through this project, I learned:
+
+* Amazon RDS
+* PostgreSQL
+* MySQL
+* AWS Schema Conversion Tool
+* AWS Database Migration Service
+* Database endpoints
+* JDBC drivers
+* Security Groups
+* Database connectivity
+* Schema conversion
+* Data migration
+* Table mappings
+* Migration monitoring
+* Data validation
+* Row-count comparison
+
+---
+
+# 🎯 Key Takeaway
+
+The main concept I learned from this project is:
+
+```text
+PostgreSQL RDS
+      ↓
+AWS SCT
+      ↓
+Convert Schema
+      ↓
+MySQL RDS
+      ↑
+      |
+AWS DMS
+      ↑
+      |
+Migrate Data
+```
+
+### In Simple Words
+
+```text
+AWS SCT → Converts the structure
+
+AWS DMS → Transfers the data
+```
+
+This project helped me understand the practical process of migrating a database from PostgreSQL to MySQL using AWS migration tools.
